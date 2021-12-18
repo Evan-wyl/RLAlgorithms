@@ -4,7 +4,7 @@ This repository mainly includes codes of RL algorithm, such as DQN|DDPG, which h
 # Environment
 1. Python  3.7.0 
 2. Pytorch 1.2.0
-3. gym 0.21.0
+3. gym 0.9.1
 
 # Reference
 1. [gym installation](https://zhuanlan.zhihu.com/p/92578711)
