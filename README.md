@@ -7,4 +7,4 @@ This repository mainly includes codes of RL algorithm, such as DQN|DDPG, which h
 3. gym 0.21.0
 
 # Reference
-
+1. [gym installation](https://zhuanlan.zhihu.com/p/92578711)
