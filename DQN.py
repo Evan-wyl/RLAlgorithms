@@ -7,6 +7,7 @@ import gym
 import random
 import copy
 import numpy as np
+import math
 
 import torch
 from torch import nn
@@ -23,11 +24,11 @@ param["SAVE_MODEL_FREQ"] = 10000
 
 def weight_init_(m):
     if isinstance(m, nn.Linear):
-        torch.nn.init.xavier_uniform_(m.weight, gain=1)
-        torch.nn.init.constant_(m.bias, 0)
+        init.xavier_normal_(m.weight, gain=1)
+        init.constant_(m.bias, 0)
     elif isinstance(m, nn.Conv2d):
-        torch.nn.init.orthogonal_(m.weight, gain='relu')
-        torch.nn.init.constant_(m.bias, 0)
+        init.orthogonal_(m.weight, gain='relu')
+        init.constant_(m.bias, 0)
 
 
 class ReplayBuffer(object):
@@ -56,9 +57,9 @@ class Citic(nn.Module):
         self.num_actions = num_actions
         self.loss = []
 
-        self.conv1 = nn.Conv2d(self.input_shape[0], 32, 3, 2)
-        self.conv2 = nn.Conv2d(32, 64, 3, 2)
-        self.conv3 = nn.Conv2d(64, 64, 3, 2)
+        self.conv1 = nn.Conv2d(self.input_shape[0], 32, 8, 4)
+        self.conv2 = nn.Conv2d(32, 64, 4, 2)
+        self.conv3 = nn.Conv2d(64, 64, 3, 1)
 
         self.linear1 = nn.Linear(self.feature_size(), 512)
         self.linear2 = nn.Linear(512, self.num_actions)
@@ -90,7 +91,7 @@ class DQN(object):
         self.critic = Citic(self.input_shape, self.num_actions).to(device)
         self.critic_target = copy.deepcopy(self.critic).to(device)
 
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.001)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-4)
 
     def training(self, batch_size, buffers):
         obs_batch, action_batch, reward_batch, next_state_batch, done_batch = self.pre_minibatch(batch_size, buffers)
@@ -116,6 +117,8 @@ class DQN(object):
         print("freqs:{}, loss:{}".format(freqs, loss))
         self.critic_optimizer.zero_grad()
         loss.backward()
+        for params in self.critic.parameters():
+            params.grad.data.clamp_(-1, 1)
         self.critic_optimizer.step()
 
         self.freq += 1
@@ -156,10 +159,10 @@ class DQN(object):
 
         return obs_arr, action_arr, reward_arr, next_state_arr, done_arr
 
-    def get_action(self, obs):
+    def get_action(self, obs, eps):
         obs = torch.transpose(torch.FloatTensor(obs).transpose(0, 2), 1, 2)
         with torch.no_grad():
-            if np.random.random() >= 0.1:
+            if np.random.random() >= eps:
                 obs = obs.unsqueeze(0).to(device)
                 action = self.critic(obs)
                 action = torch.argmax(action)
@@ -177,8 +180,11 @@ class DQN(object):
 
 
 if __name__ == '__main__':
-    env = gym.make("Pong-v4")
+    env = gym.make("PongNoFrameskip-v4")
     obs = env.reset()
+
+    random.seed(2021)
+    torch.random.manual_seed(2021)
 
     input_shape = torch.transpose(torch.FloatTensor(obs).transpose(0, 2), 1, 2).shape
     num_actions = env.action_space.n
@@ -188,15 +194,24 @@ if __name__ == '__main__':
 
     buffers = ReplayBuffer(buffer_size=100000)
 
+    epsilon_by_frame = lambda frame_idx: 0.01 + (1.0 - 0.01) * math.exp(-1. * frame_idx / 30000)
+
     freqs = 0
     episode = 0
-    for _ in range(1000000):
+    rewards_1 = 0
+    for _ in range(1, 1000001):
+
+        eps = epsilon_by_frame(_)
+
         freqs += 1
         env.render()
-        action = dqn.get_action(obs)
+        action = dqn.get_action(obs, eps)
         next_obs, reward, done, _ = env.step(action)
+        if reward == 1:
+            rewards_1 += reward
         print("freqs:{}, episode:{}, action:{}".format(freqs, episode, action))
         print("freqs:{}, episode:{}, reward:{}".format(freqs, episode, reward))
+        print("freqs:{}, episode:{}, rewards_1:{}".format(freqs, episode, rewards_1))
         buffers.save(obs, action, reward, next_obs, done)
         obs = next_obs
 
