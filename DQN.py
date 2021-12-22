@@ -134,7 +134,7 @@ class DQN(object):
         results = 0
         while True:
             env.render()
-            action = self.get_action(obs)
+            action = self.get_action(obs, eps)
             next_obs, reward, done, _ = env.step(action)
             results += reward
             obs = next_obs
@@ -188,7 +188,7 @@ if __name__ == '__main__':
 
     input_shape = torch.transpose(torch.FloatTensor(obs).transpose(0, 2), 1, 2).shape
     num_actions = env.action_space.n
-    batch_size = 128
+    batch_size = 32
 
     dqn = DQN(input_shape, num_actions, 0.99)
 
