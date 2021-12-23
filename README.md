@@ -8,5 +8,10 @@ All codes can be run!😊✨
 2. Pytorch 1.7.1
 3. gym 0.9.1
 
+
+# Hard Train Level
+DQN：✨✨✨✨✨
+
+
 # Reference
 1. [gym installation](https://zhuanlan.zhihu.com/p/92578711)
