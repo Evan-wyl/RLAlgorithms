@@ -6,6 +6,7 @@
 import gym
 import random
 import copy
+import numpy as np
 
 import torch
 from torch import nn
@@ -22,6 +23,7 @@ param["FREQ"] = 0
 param["EPS"] = 0.1
 param['GAMMA'] = 0.99
 param["TAU"] = 0.001
+param["NOISE"] = 0.05
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -63,13 +65,12 @@ class Actor(nn.Module):
         self.l2 = nn.Linear(512, 256)
         self.l3 = nn.Linear(256, action_shape[0])
 
-        self.max_action = max_action
+        self.max_action = torch.FloatTensor(max_action).to(device)
 
     def forward(self, x):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
-        out = F.tanh(self.l3(x))
-        return out * self.max_action
+        return self.max_action * torch.tanh(self.l3(x))
 
 
 class Critic(nn.Module):
@@ -81,7 +82,7 @@ class Critic(nn.Module):
         self.l3 = nn.Linear(256, 1)
 
     def forward(self, obs, action):
-        x = F.relu(self.l1(obs + action))
+        x = F.relu(self.l1(torch.cat([obs, action], 1)))
         x = F.relu(self.l2(x))
         x = self.l3(x)
         return x
@@ -96,11 +97,11 @@ class DDPG(nn.Module):
         self.gamma = param["GAMMA"]
         self.tau = param["TAU"]
 
-        self.critic = Critic(obs_shape, action_shape)
+        self.critic = Critic(obs_shape, action_shape).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)
 
-        self.actor = Actor(obs_shape, action_shape, max_action)
+        self.actor = Actor(obs_shape, action_shape, max_action).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-4)
 
@@ -117,6 +118,7 @@ class DDPG(nn.Module):
         self.critic_optimizer.step()
 
         loss_actor = - self.critic(obs_batch, self.actor(obs_batch))
+        loss_actor = torch.sum(loss_actor)
         self.actor_optimizer.zero_grad()
         loss_actor.backward()
         self.actor_optimizer.step()
@@ -129,8 +131,8 @@ class DDPG(nn.Module):
 
     def get_action(self, obs):
         obs = torch.tensor(obs, device=device, dtype=torch.float).view((-1, ) + self.obs_shape)
-        action = self.actor(obs).cpu().data.numpy().flatten()
-        return action
+        action = self.actor(obs)
+        return action.cpu().data.numpy().flatten()
 
     def prepare_mini_batch(self, batch_size, replay_buffer):
         sample_arr = replay_buffer.sample(batch_size)
@@ -183,11 +185,13 @@ if __name__ == '__main__':
         param["FREQ"] +=1
         env.render()
         action = ddpg.get_action(obs)
+        action = np.clip(np.random.normal(action, param["NOISE"]), -1.0, 1.0)
         next_obs, rewards, done, _ = env.step(action)
         replay_buffer.save(obs, action, next_obs, rewards, done)
         obs = next_obs
         if done:
             obs = env.reset()
+        print("freqs:{}, action:{}, rewards:{}".format(param["FREQ"], action, rewards))
 
         ddpg.train_model(param["BUFFER_SIZE"], replay_buffer)
 
