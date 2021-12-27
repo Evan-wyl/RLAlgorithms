@@ -185,7 +185,7 @@ if __name__ == '__main__':
     rewards_total = 0
     epoch = 0
     for i in range(1, param["TOTAL_TIMES"] + 1):
-        param["NOISE"] = param["NOISE_END"] + (param["NOISE_START"] - param["NOISE_END"]) * np.exp((-1 * i) / 30000)
+        param["NOISE"] = param["NOISE_END"] + (param["NOISE_START"] - param["NOISE_END"]) * np.exp((-1 * i) / 100000)
         param["FREQ"] +=1
         env.render()
         action = ddpg.get_action(obs)
@@ -196,10 +196,11 @@ if __name__ == '__main__':
         obs = next_obs
         if done:
             obs = env.reset()
+            epoch += 1
 
         if rewards > 0:
             rewards_total += 1
-            epoch += 1
+
         print("freqs:{}, action:{}, rewards:{}".format(param["FREQ"], action, rewards))
         print("freqs:{}, epoch:{}, success:{}".format(param["FREQ"], epoch, rewards_total))
 
