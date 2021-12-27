@@ -23,7 +23,8 @@ param["FREQ"] = 0
 param["EPS"] = 0.1
 param['GAMMA'] = 0.99
 param["TAU"] = 0.001
-param["NOISE"] = 0.05
+param["NOISE_END"] = 0.05
+param["NOISE_START"] = 5.0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -181,17 +182,26 @@ if __name__ == '__main__':
     replay_buffer = ReplayBuffer()
     ddpg = DDPG(obs_shape, action_shape, max_action)
 
-    for _ in range(1, param["TOTAL_TIMES"] + 1):
+    rewards_total = 0
+    epoch = 0
+    for i in range(1, param["TOTAL_TIMES"] + 1):
+        param["NOISE"] = param["NOISE_END"] + (param["NOISE_START"] - param["NOISE_END"]) * np.exp((-1 * i) / 30000)
         param["FREQ"] +=1
         env.render()
         action = ddpg.get_action(obs)
         action = np.clip(np.random.normal(action, param["NOISE"]), -1.0, 1.0)
         next_obs, rewards, done, _ = env.step(action)
+
         replay_buffer.save(obs, action, next_obs, rewards, done)
         obs = next_obs
         if done:
             obs = env.reset()
+
+        if rewards > 0:
+            rewards_total += 1
+            epoch += 1
         print("freqs:{}, action:{}, rewards:{}".format(param["FREQ"], action, rewards))
+        print("freqs:{}, epoch:{}, success:{}".format(param["FREQ"], epoch, rewards_total))
 
         ddpg.train_model(param["BUFFER_SIZE"], replay_buffer)
 
