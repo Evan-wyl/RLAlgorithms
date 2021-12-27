@@ -11,7 +11,9 @@ All codes can be run!😊✨
 
 # Hard Train Level
 **DQN**:  ✨✨✨✨✨
+**DDPG**: ✨✨✨✨
 
 
 # Reference
 1. [gym installation](https://zhuanlan.zhihu.com/p/92578711)
+2. [Spinning Up](https://spinningup.openai.com/en/latest/)
