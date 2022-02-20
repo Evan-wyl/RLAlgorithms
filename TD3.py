@@ -17,7 +17,7 @@ import gym
 
 param = dict()
 param["buffer_size"] = 10000
-param["total_times"] = 10^8
+param["total_times"] = 100000000
 param["vars"] = 1
 param["vars_1"] = 1.5
 param["c"] = 0.5
@@ -129,12 +129,12 @@ class TD3(nn.Module):
 
         return obs_batch, action_batch, next_obs_batch, reward_batch, done_batch
 
-    def training(self, batch_size, buffer):
+    def train_model(self, batch_size, buffer):
         obs_batch, action_batch, next_obs_batch, reward_batch, done_batch = self.prepare_mini_batch(batch_size=batch_size, buffer=buffer)
 
         with torch.no_grad():
-            actions = self.actor(obs_batch) + torch.clip(torch.normal(torch.tensor(0), torch.tensor(param["vars_1"])),
-                                                         -param["c"], param["c"]).to(param["device"])
+            actions = self.actor(obs_batch) + torch.clip(torch.tensor(random.normalvariate(0, param["vars_1"])),
+                                                         -param["c"], param["c"])
             min_q = torch.min(self.critic1(obs_batch, actions), self.critic2(obs_batch, actions)).view((-1,1))
             target_c = reward_batch + min_q
         loss_c1 = F.mse_loss(target_c, self.critic1(obs_batch, actions))
@@ -149,6 +149,7 @@ class TD3(nn.Module):
 
         if param["freq"] % param["update_freq"] == 0:
             loss_actor = self.critic1(obs_batch, self.actor(obs_batch))
+            loss_actor = torch.sum(loss_actor)
             self.actor_optimizer.zero_grad()
             loss_actor.backward()
             self.actor_optimizer.step()
@@ -218,7 +219,7 @@ if __name__ == '__main__':
         print("freqs:{},epoch:{},total_rewards:{}".format(param["freq"],epoch, total_rewards))
 
         batch_size = param["batch_size"]
-        td3.training(batch_size, replay_buffer)
+        td3.train_model(batch_size, replay_buffer)
 
         if i % 10000 == 0:
             td3.save_model()
